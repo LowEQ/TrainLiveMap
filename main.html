@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train Live Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div id="map" style="height: 1000px;"></div>
+
+    <script>
+        const trainLocationsUrl = "https://rata.digitraffic.fi/api/v1/train-locations.geojson/latest";
+        const headers = {"Digitraffic-User": "TrainLiveMap/TrainLiveMap 1.0", "Accept-Encoding": "gzip"};
+        const center = [62.2426, 25.7473];
+        const zoomLevel = 6;
+        let map = null;
+
+        function fetchAndDisplayTrainLocations() {
+            $.ajax({
+                url: trainLocationsUrl,
+                headers: headers,
+                dataType: 'json',
+                success: function(data) {
+                    updateMarkers(data);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error fetching or processing data:', error);
+                },
+                complete: function() {
+                    setTimeout(fetchAndDisplayTrainLocations, 10000);
+                }
+            });
+        }
+
+        function updateMarkers(data) {
+            if (!map) {
+                map = L.map('map').setView(center, zoomLevel);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+            }
+
+            // Clear previous trains from map
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add update trains
+            data.features.forEach(train => {
+                const trainProps = train.properties;
+                const markerColor = trainProps.speed == 0 ? 'red' : 'green';
+                const marker = L.marker([train.geometry.coordinates[1], train.geometry.coordinates[0]])
+                                  .bindPopup('Train number: ' + trainProps.trainNumber + ' Train speed: ' + trainProps.speed)
+                                  .setIcon(new L.Icon({ iconUrl: '/res/marker_' + markerColor + '.png' }))
+                                  .addTo(map);
+            });
+        }
+
+        fetchAndDisplayTrainLocations();
+    </script>
+</body>
+</html>
